@@ -24,8 +24,8 @@ This repo includes the full, reproducible pipeline: **data collection → cleani
 
 ```bash
 # Clone this repository
-git clone https://github.com/ashlanserrao/delhi-air-quality-lstm.git
-cd delhi-air-quality-lstm
+git clone https://github.com/ashlanserrao/air-quality-forecast.git
+cd air-quality-forecast
 
 # Create a virtual environment (optional)
 python -m venv venv
