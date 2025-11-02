@@ -1,0 +1,11 @@
+requests
+pandas 
+numpy
+matplotlib
+pyyaml
+dotenv
+pyarrow
+fastparquet
+seaborn
+tensorflow
+#-e .
