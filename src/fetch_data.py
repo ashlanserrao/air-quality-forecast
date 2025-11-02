@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import os
 
 
-#  Replace with your actual API key
+
 API_KEY = "1c5e8e2ca7f52e01da7c4c2038cd0c95080aa8fa60e350eb16d9374ff7e35db6"
 
 BASE_URL = "https://api.openaq.org/v3/measurements"
