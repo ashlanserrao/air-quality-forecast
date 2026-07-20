@@ -4,9 +4,12 @@ import pandas as pd
 from datetime import datetime, timedelta, timezone
 import os
 
-
-
-API_KEY = "1c5e8e2ca7f52e01da7c4c2038cd0c95080aa8fa60e350eb16d9374ff7e35db6"
+API_KEY = os.environ.get("OPENAQ_API_KEY")
+if not API_KEY:
+    raise RuntimeError(
+        "OPENAQ_API_KEY environment variable is not set. "
+        "Set it (e.g. in a .env file loaded via python-dotenv, or `export OPENAQ_API_KEY=...`) before running this script."
+    )
 
 BASE_URL = "https://api.openaq.org/v3/measurements"
 

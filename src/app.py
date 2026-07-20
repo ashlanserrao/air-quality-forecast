@@ -8,9 +8,9 @@ import tensorflow as tf
 from datetime import timedelta
 
 SEQ_LENGTH = 30
-DATA_PATH = "pm25_daily_final.csv"       
-MODEL_PATH = "artifacts/best_lstm.keras" 
-SCALER_PATH = "artifacts/scaler.joblib"  
+DATA_PATH = "../data/processed/pm25_daily_final.csv"
+MODEL_PATH = "../models/best_lstm.keras"
+SCALER_PATH = "../models/scaler.joblib"
 
 
 st.set_page_config(page_title="Delhi PM2.5 Forecast — LSTM", layout="wide")

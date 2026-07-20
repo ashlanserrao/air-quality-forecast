@@ -1,0 +1,10 @@
+{
+  "training_date": "2025-10-19",
+  "source_data_file": "data/processed/pm25_daily_final.csv",
+  "notebook": "src/LSTM_Preprocessing.ipynb",
+  "metrics": {
+    "rmse": 31.09,
+    "mae": 19.24,
+    "source": "README.md (notebook cell output was not machine-readable)"
+  }
+}
