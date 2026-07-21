@@ -1,16 +1,12 @@
 # app.py  Streamlit interactive forecaster for daily PM2.5 (Delhi)
-import os, sys
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
-import tensorflow as tf
 from datetime import timedelta
+from forecasting import forecast as run_forecast, SEQ_LENGTH
 
-SEQ_LENGTH = 30
 DATA_PATH = "../data/processed/pm25_daily_final.csv"
-MODEL_PATH = "../models/best_lstm.keras"
-SCALER_PATH = "../models/scaler.joblib"
 
 
 st.set_page_config(page_title="Delhi PM2.5 Forecast — LSTM", layout="wide")
@@ -51,33 +47,6 @@ def load_data(path=DATA_PATH) -> pd.DataFrame:
 
     return df[["pm25"]]
 
-@st.cache_resource
-def load_model_and_scaler():
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model not found at {MODEL_PATH}. Did you save it?")
-    if not os.path.exists(SCALER_PATH):
-        raise FileNotFoundError(f"Scaler not found at {SCALER_PATH}. Did you dump it?")
-    model = tf.keras.models.load_model(MODEL_PATH)
-    scaler = joblib.load(SCALER_PATH)
-    return model, scaler
-
-def make_sequences(series_scaled: np.ndarray, seq_len: int = SEQ_LENGTH):
-    """Return last seq_len as model input."""
-    x = series_scaled[-seq_len:]
-    return x.reshape(1, seq_len, 1)
-
-def iterative_forecast(model, scaler, history_values: np.ndarray, horizon: int = 7) -> np.ndarray:
-    hist_scaled = scaler.transform(history_values.reshape(-1, 1)).ravel()
-    preds = []
-    cur = hist_scaled.copy()
-    for _ in range(horizon):
-        x = make_sequences(cur, SEQ_LENGTH)  # shape (1, seq, 1)
-        yhat_scaled = model.predict(x, verbose=0).ravel()[0]
-        yhat = scaler.inverse_transform(np.array([[yhat_scaled]])).ravel()[0]
-        preds.append(float(yhat))
-        cur = np.append(cur, yhat_scaled)
-    return np.array(preds, dtype=float)
-
 # Interface
 st.title("Delhi PM2.5 Forecast — LSTM (Daily)")
 st.markdown("""
@@ -95,7 +64,6 @@ with st.sidebar:
 # Loading data
 try:
     df = load_data()
-    model, scaler = load_model_and_scaler()
 except Exception as e:
     st.error(str(e))
     st.stop()
@@ -130,7 +98,7 @@ if history_raw is None or len(history_raw) < SEQ_LENGTH:
     st.stop()
 
 # Prediction
-preds = iterative_forecast(model, scaler, history_raw, horizon=horizon)
+preds = run_forecast(history_raw.tolist(), horizon=horizon)
 
 # Future index & outputs
 last_date = pd.to_datetime(df.index.max())
