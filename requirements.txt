@@ -8,4 +8,5 @@ pyarrow
 fastparquet
 seaborn
 tensorflow
+openai
 #-e .
