@@ -2,13 +2,10 @@
 import os
 import sys
 import json
-import pandas as pd
 from openai import OpenAI
 
 from forecasting import forecast, SEQ_LENGTH
-
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_PATH = os.path.join(_REPO_ROOT, "data", "processed", "pm25_daily_final.csv")
+from fetch_data import get_recent_clean_history
 
 MODEL = "gpt-4o-mini"
 
@@ -29,6 +26,11 @@ ug/m3) breakpoints — do not invent your own thresholds:
 
 State the category each forecasted day falls into and give a plain-English
 recommendation (e.g. about outdoor activity) based on that category. Be concise.
+
+If a tool result contains an "error" field instead of a forecast, do not
+fabricate a forecast or guess at air quality. Tell the user honestly and
+concisely that you can't generate a reliable forecast right now, based on
+the reason given in the error.
 """
 
 TOOLS = [
@@ -65,16 +67,16 @@ TOOLS = [
 ]
 
 
-def _load_recent_history(n: int = SEQ_LENGTH) -> list[float]:
-    df = pd.read_csv(DATA_PATH)
-    return df["pm25"].tail(n).tolist()
-
-
 def _run_tool(name: str, arguments: dict) -> dict:
     if name != "get_pm25_forecast":
         raise ValueError(f"Unknown tool: {name}")
     horizon = int(arguments.get("horizon", 7))
-    history = _load_recent_history()
+
+    try:
+        history = get_recent_clean_history(SEQ_LENGTH).tolist()
+    except ValueError as e:
+        return {"error": str(e)}
+
     preds = forecast(history, horizon=horizon)
     return {"horizon": horizon, "forecast_pm25": [round(p, 2) for p in preds]}
 
