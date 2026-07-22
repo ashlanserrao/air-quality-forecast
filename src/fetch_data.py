@@ -7,15 +7,21 @@ import requests
 
 from cleaning import clean_pm25_series
 
-API_KEY = os.environ.get("OPENAQ_API_KEY")
-if not API_KEY:
-    raise RuntimeError(
-        "OPENAQ_API_KEY environment variable is not set. "
-        "Set it (e.g. in a .env file loaded via python-dotenv, or `export OPENAQ_API_KEY=...`) before running this script."
-    )
-
 BASE_URL = "https://api.openaq.org/v3"
-HEADERS = {"X-API-Key": API_KEY}
+
+
+def _headers() -> dict:
+    """Resolve the OpenAQ key at call time, not import time, so importing this
+    module (e.g. via `import agent` when serving GET /health) doesn't require the
+    key. It's only needed when a live fetch actually runs."""
+    api_key = os.environ.get("OPENAQ_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "OPENAQ_API_KEY environment variable is not set. "
+            "Set it (e.g. in a .env file, or `export OPENAQ_API_KEY=...`) "
+            "before requesting a live forecast."
+        )
+    return {"X-API-Key": api_key}
 
 # PM2.5 sensor at OpenAQ location 8118 (New Delhi) — looked up once via
 # GET /v3/locations/8118/sensors and hardcoded since it doesn't change.
@@ -41,7 +47,7 @@ def fetch_daily_pm25(sensor_id: int = PM25_SENSOR_ID, days: int = FETCH_DAYS) ->
     all_results = []
     while True:
         response = requests.get(
-            f"{BASE_URL}/sensors/{sensor_id}/days", headers=HEADERS, params=params
+            f"{BASE_URL}/sensors/{sensor_id}/days", headers=_headers(), params=params
         )
         response.raise_for_status()
         data = response.json()

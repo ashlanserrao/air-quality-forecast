@@ -1,0 +1,11 @@
+# Lint config for CI. Conservative on purpose: this gate blocks merges, so it
+# checks for genuinely broken code (syntax errors, undefined names, bad f-strings)
+# rather than style nits that would red-light the existing codebase. Tighten the
+# `select` list over time as the code is cleaned.
+line-length = 100
+target-version = "py310"
+
+[lint]
+select = ["E9", "F63", "F7", "F82"]
+
+exclude = ["notebooks", ".venv310", "data"]

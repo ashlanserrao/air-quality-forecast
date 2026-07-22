@@ -1,125 +1,122 @@
-# app.py  Streamlit interactive forecaster for daily PM2.5 (Delhi)
+# app.py — Streamlit UI for the Delhi PM2.5 agent.
+#
+# Talks to the FastAPI service over HTTP only (POST /forecast, POST /query) — it
+# imports no model, TensorFlow, or agent code, so this process stays light and
+# the UI is fully decoupled from the ML stack. The API base URL comes from
+# API_URL (http://api:8000 under docker-compose; http://localhost:8000 locally).
 import os
-import streamlit as st
-import pandas as pd
-import numpy as np
 from datetime import timedelta
-from forecasting import forecast as run_forecast, SEQ_LENGTH
 
-DATA_PATH = "../data/processed/pm25_daily_final.csv"
+import requests
+import pandas as pd
+import streamlit as st
 
+API_URL = os.environ.get("API_URL", "http://localhost:8000").rstrip("/")
+DATA_PATH = os.environ.get(
+    "HISTORY_CSV",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                 "data", "processed", "pm25_daily_final.csv"),
+)
+SEQ_LENGTH = 30
 
 st.set_page_config(page_title="Delhi PM2.5 Forecast — LSTM", layout="wide")
 
-@st.cache_data
-def load_data(path=DATA_PATH) -> pd.DataFrame:
-    """Load daily CSV robustly and return DataFrame indexed by datetime with 'pm25' column."""
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"Data file not found: {path}")
 
-    # Load with first column as dates 
+@st.cache_data
+def load_history(path=DATA_PATH) -> pd.DataFrame:
+    """Recent observed PM2.5, for the history chart and as forecast input."""
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"History CSV not found: {path}")
     df = pd.read_csv(path, parse_dates=[0])
     df.columns = [str(c).strip() for c in df.columns]
-
-    # Normalizing the column names
     if "Unnamed: 0" in df.columns:
         df = df.rename(columns={"Unnamed: 0": "date"})
-    if "pm25_clean" in df.columns and "pm25" not in df.columns:
-        df = df.rename(columns={"pm25_clean": "pm25"})
-
-    if "date" not in df.columns or "pm25" not in df.columns:
-        # If user saved with index only, try to set index as date
-        if df.columns.size == 1 and df.index.name:
-            df = df.rename(columns={df.columns[0]: "pm25"}).reset_index().rename(columns={df.index.name: "date"})
-        else:
-            raise ValueError("CSV must contain a datetime column (first col) and a 'pm25' column.")
-
-    # datatype cleaning 
     df["pm25"] = pd.to_numeric(df["pm25"], errors="coerce")
-    df = df.dropna(subset=["date", "pm25"]).sort_values("date")
-    df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce")
-    df = df.dropna(subset=["date"]).drop_duplicates(subset=["date"])
+    df["date"] = pd.to_datetime(df.iloc[:, 0], utc=True, errors="coerce")
+    df = df.dropna(subset=["date", "pm25"]).drop_duplicates(subset=["date"])
     df = df.set_index("date").sort_index()
-
-   # Making sure there is enough history for prediction
     if len(df) < SEQ_LENGTH + 1:
         raise ValueError(f"Not enough rows for a {SEQ_LENGTH}-day look-back (rows={len(df)}).")
-
     return df[["pm25"]]
 
-# Interface
-st.title("Delhi PM2.5 Forecast — LSTM (Daily)")
-st.markdown("""
-Forecast **daily PM2.5** with a trained **LSTM**.
-- Model: univariate, 30-day look-back → next-day prediction
-- Data: Cleaned daily PM2.5 (2016–2025)
-""")
+
+def call_forecast(history: list[float], horizon: int) -> pd.Series | None:
+    try:
+        resp = requests.post(
+            f"{API_URL}/forecast",
+            json={"history": history, "horizon": horizon},
+            timeout=60,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        st.error(f"Forecast API error: {e}")
+        return None
+    days = resp.json()["forecast"]
+    return pd.Series([d["pm25_ugm3"] for d in days], name="forecast_pm25")
+
+
+def call_query(question: str) -> str | None:
+    try:
+        resp = requests.post(f"{API_URL}/query", json={"query": question}, timeout=120)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        detail = ""
+        if e.response is not None:
+            try:
+                detail = f" — {e.response.json().get('detail', '')}"
+            except Exception:
+                pass
+        st.error(f"Query API error: {e}{detail}")
+        return None
+    return resp.json()["answer"]
+
+
+# --- interface ------------------------------------------------------------
+st.title("Delhi PM2.5 Forecast & Air-Quality Agent")
+st.caption(f"API: {API_URL}")
 
 with st.sidebar:
     st.header("Settings")
-    horizon = st.number_input("Forecast horizon (days)", min_value=1, max_value=30, value=7, step=1)
-    allow_manual = st.checkbox("Provide manual last 30 days?", value=False)
+    horizon = st.number_input("Forecast horizon (days)", 1, 30, 7, 1)
     show_hist_days = st.slider("Show recent history (days)", 30, 365, 180, step=30)
 
-# Loading data
 try:
-    df = load_data()
+    df = load_history()
 except Exception as e:
     st.error(str(e))
     st.stop()
 
 st.success(f"Loaded {len(df)} daily rows. Last date: {df.index.max().date()}")
 
-# Plot of recent history
 st.subheader("Recent observed data")
 st.line_chart(df.tail(show_hist_days))
 
-# Manual pm2.5 values entry
-if allow_manual:
-    st.markdown("Paste **exactly 30** PM2.5 values (one per line). Leave blank to use data history.")
-    manual_text = st.text_area("Manual values (µg/m³)", height=200, placeholder="e.g.\n92\n105\n88\n… (30 lines)")
-    values = [v.strip() for v in manual_text.splitlines() if v.strip()]
-    if len(values) == 0:
-        history_raw = df["pm25"].values[-SEQ_LENGTH:]
-    elif len(values) != SEQ_LENGTH:
-        st.warning(f"Please provide exactly {SEQ_LENGTH} values or clear the box.")
-        history_raw = None
-    else:
-        try:
-            history_raw = np.array([float(v) for v in values], dtype=float)
-        except ValueError:
-            st.error("Some manual entries are not numeric.")
-            history_raw = None
-else:
-    history_raw = df["pm25"].values[-SEQ_LENGTH:]
+# --- forecast (via POST /forecast) ---------------------------------------
+history_raw = df["pm25"].values[-SEQ_LENGTH:].tolist()
+preds = call_forecast(history_raw, int(horizon))
+if preds is not None:
+    last_date = pd.to_datetime(df.index.max())
+    future_idx = pd.date_range(last_date + timedelta(days=1), periods=int(horizon), freq="D")
+    forecast = pd.Series(preds.values, index=future_idx, name="forecast_pm25")
 
-if history_raw is None or len(history_raw) < SEQ_LENGTH:
-    st.info("Provide valid last 30 values (or disable manual mode) to forecast.")
-    st.stop()
+    st.subheader(f"{int(horizon)}-day forecast")
+    combined = pd.concat([df.tail(show_hist_days), forecast.to_frame("pm25")], axis=0)
+    st.line_chart(combined)
+    st.dataframe(forecast.round(2).to_frame())
+    st.download_button(
+        "Download forecast CSV",
+        forecast.round(2).to_csv().encode("utf-8"),
+        file_name="pm25_forecast.csv",
+        mime="text/csv",
+    )
 
-# Prediction
-preds = run_forecast(history_raw.tolist(), horizon=horizon)
-
-# Future index & outputs
-last_date = pd.to_datetime(df.index.max())
-future_idx = pd.date_range(last_date + timedelta(days=1), periods=horizon, freq="D")
-forecast = pd.Series(preds, index=future_idx, name="forecast_pm25")
-
-st.subheader(f"{horizon}-day forecast")
-st.line_chart(forecast.to_frame())
-
-# Combining the history with prediction
-recent = df.tail(show_hist_days).copy()
-combined = pd.concat([recent, forecast.to_frame("pm25")], axis=0)
-st.subheader(f"Recent {show_hist_days} days + forecast")
-st.line_chart(combined)
-
-# Download function
-st.subheader("Forecast table")
-st.dataframe(forecast.round(2).to_frame())
-os.makedirs("results", exist_ok=True)
-forecast.round(2).to_csv("results/pm25_forecast_streamlit.csv", header=True)
-st.download_button("Download forecast CSV",
-                   forecast.round(2).to_csv().encode("utf-8"),
-                   file_name="pm25_forecast.csv",
-                   mime="text/csv")
+# --- ask the agent (via POST /query) -------------------------------------
+st.subheader("Ask the agent")
+st.caption("e.g. \"is Delhi's air worse than what WHO considers safe?\" or "
+           "\"will next week trigger GRAP restrictions?\"")
+question = st.text_input("Your question", key="agent_q")
+if st.button("Ask") and question.strip():
+    with st.spinner("Thinking…"):
+        answer = call_query(question.strip())
+    if answer:
+        st.markdown(answer)

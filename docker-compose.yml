@@ -1,0 +1,32 @@
+# docker-compose for the Oracle Always-Free VM.
+#   api — FastAPI (heavy: TF/Torch/Chroma), internal only
+#   ui  — Streamlit (light: HTTP-only), published on :8501
+#
+# One image, two commands. Keys and the image ref come from a root .env file
+# (chmod 600, never committed). On the VM:  docker compose pull && docker compose up -d
+services:
+  api:
+    image: ${IMAGE:-pm25-agent:latest}
+    build: .
+    env_file: .env            # OPENAI_API_KEY, OPENAQ_API_KEY, optional LANGFUSE_*
+    restart: unless-stopped
+    expose:
+      - "8000"                # internal to the compose network; not published
+    # healthcheck is inherited from the image (hits /health on :8000)
+
+  ui:
+    image: ${IMAGE:-pm25-agent:latest}
+    build: .
+    command: ["streamlit", "run", "src/app.py",
+              "--server.port=8501", "--server.address=0.0.0.0",
+              "--server.headless=true"]
+    environment:
+      - API_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "8501:8501"           # published to the internet (open both firewalls!)
+    healthcheck:
+      disable: true           # the image's /health check is for the API, not the UI

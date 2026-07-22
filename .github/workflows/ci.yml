@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  # Always runs, no secrets needed — this is the required check that blocks merge.
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install lint + test tools
+        run: pip install ruff pytest pyyaml   # guardrail is stdlib-only; no heavy deps
+      - name: Lint
+        run: ruff check .
+      - name: Key-free test tier
+        # guardrail regression cases run live and pure; the report-backed gates
+        # skip cleanly without eval/report.json.
+        run: pytest tests/ -q
+
+  # Runs the full eval and enforces report.json thresholds — but only when the
+  # OPENAI_API_KEY secret is available. Forks (no secret) skip gracefully; the
+  # job still succeeds so it can safely be marked a required check too.
+  eval-gate:
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEY: ${{ secrets.OPENAI_API_KEY }}   # indirection: empty for forks
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Skip notice (no secret)
+        if: env.HAS_KEY == ''
+        run: echo "OPENAI_API_KEY not present (fork/no secret) — skipping eval gate."
+      - name: Install full dependencies
+        if: env.HAS_KEY != ''
+        run: pip install -r requirements.txt
+      - name: Run eval and enforce thresholds
+        if: env.HAS_KEY != ''
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+          EVAL_REQUIRE_REPORT: "1"    # missing/failed report -> hard failure
+        run: |
+          python eval/run_eval.py
+          pytest tests/test_eval_gates.py -q
