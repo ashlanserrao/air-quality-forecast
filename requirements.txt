@@ -12,4 +12,5 @@ openai
 pymupdf
 sentence-transformers
 chromadb
+pytest
 #-e .

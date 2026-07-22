@@ -51,6 +51,9 @@ WHO_PM25_GUIDELINE_CHUNK = {
     "page_start": 8,
     "page_end": 8,
     "chunk_type": "reference",
+    # Injected, not retrieved: no embedding distance. None keeps it out of the
+    # context-relevance metric so it can't mask a real retrieval regression.
+    "similarity": None,
 }
 
 _collection = None
@@ -83,11 +86,17 @@ def _detect_source(query: str) -> str | None:
     return SOURCE_KEYWORDS[m.group(1).lower()]
 
 
-def _result_to_chunks(results, source_key="id") -> list[dict]:
+def _result_to_chunks(results) -> list[dict]:
+    # The embeddings are L2-normalized, so Chroma's default distance equals
+    # (1 - cosine); reporting similarity = 1 - distance gives true cosine, which
+    # the eval harness uses as its context-relevance proxy. distances is only
+    # present when the query requested include=["distances"].
+    distances = (results.get("distances") or [None])[0]
     chunks = []
-    for doc, meta, chunk_id in zip(
-        results["documents"][0], results["metadatas"][0], results["ids"][0]
+    for i, (doc, meta, chunk_id) in enumerate(
+        zip(results["documents"][0], results["metadatas"][0], results["ids"][0])
     ):
+        dist = distances[i] if distances is not None else None
         chunks.append(
             {
                 "id": chunk_id,
@@ -97,6 +106,7 @@ def _result_to_chunks(results, source_key="id") -> list[dict]:
                 "page_start": meta["page_start"],
                 "page_end": meta["page_end"],
                 "chunk_type": meta["chunk_type"],
+                "similarity": (1.0 - dist) if dist is not None else None,
             }
         )
     return chunks
@@ -115,7 +125,9 @@ def get_health_guidance(query: str, top_k: int = 3) -> list[dict]:
     """
     collection = _get_collection()
 
-    vector_results = collection.query(query_texts=[query], n_results=top_k)
+    vector_results = collection.query(
+        query_texts=[query], n_results=top_k, include=["documents", "metadatas", "distances"]
+    )
     vector_chunks = _result_to_chunks(vector_results)
 
     priority_chunks = []
@@ -131,7 +143,10 @@ def get_health_guidance(query: str, top_k: int = 3) -> list[dict]:
     stage_label = _detect_stage(query)
     if stage_label is not None:
         filtered = collection.query(
-            query_texts=[query], n_results=1, where={"section_title": stage_label}
+            query_texts=[query],
+            n_results=1,
+            where={"section_title": stage_label},
+            include=["documents", "metadatas", "distances"],
         )
         priority_chunks.extend(_result_to_chunks(filtered))
 
@@ -140,6 +155,7 @@ def get_health_guidance(query: str, top_k: int = 3) -> list[dict]:
             query_texts=[query],
             n_results=min(top_k, 2),
             where={"source_document": source_file},
+            include=["documents", "metadatas", "distances"],
         )
         priority_chunks.extend(_result_to_chunks(filtered))
 

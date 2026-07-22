@@ -1,0 +1,256 @@
+{
+  "generated_at": "2026-07-22T07:15:37.993879+00:00",
+  "summary": {
+    "passed": 12,
+    "total": 12
+  },
+  "by_category": {
+    "false_positive": {
+      "passed": 1,
+      "total": 1
+    },
+    "multi_tool": {
+      "passed": 1,
+      "total": 1
+    },
+    "rag": {
+      "passed": 6,
+      "total": 6
+    },
+    "regression": {
+      "passed": 4,
+      "total": 4
+    }
+  },
+  "metrics": {
+    "context_relevance": {
+      "rag_grap_stage3": 0.4073,
+      "rag_aqi_350": 0.5425,
+      "rag_who_guideline": 0.5409,
+      "rag_us_breakpoints": 0.6241,
+      "e2e_who_comparison": 0.4518
+    },
+    "context_relevance_min": 0.4073,
+    "context_relevance_floor": 0.3,
+    "context_relevance_drift": {
+      "rag_grap_stage3": {
+        "score": 0.4073,
+        "baseline": 0.4073,
+        "drop": 0.0,
+        "failed": false
+      },
+      "rag_aqi_350": {
+        "score": 0.5425,
+        "baseline": 0.5425,
+        "drop": 0.0,
+        "failed": false
+      },
+      "rag_who_guideline": {
+        "score": 0.5409,
+        "baseline": 0.5409,
+        "drop": 0.0,
+        "failed": false
+      },
+      "rag_us_breakpoints": {
+        "score": 0.6241,
+        "baseline": 0.6241,
+        "drop": 0.0,
+        "failed": false
+      },
+      "e2e_who_comparison": {
+        "score": 0.4518,
+        "baseline": 0.4518,
+        "drop": 0.0,
+        "failed": false
+      }
+    }
+  },
+  "forecast": {
+    "test_windows": 576,
+    "lstm_mae": 19.24,
+    "lstm_rmse": 31.089,
+    "persistence_mae": 19.392,
+    "persistence_rmse": 33.141,
+    "beats_persistence": true
+  },
+  "gates": {
+    "regression_pass": true,
+    "routing_pass": true,
+    "retrieval_accuracy_pass": true,
+    "faithfulness_pass": true,
+    "context_relevance_floor_pass": true,
+    "context_relevance_drift_pass": true,
+    "forecast_beats_persistence": true
+  },
+  "cases": [
+    {
+      "id": "guardrail_aqi_unit_conflation",
+      "type": "guardrail",
+      "category": "regression",
+      "passed": true,
+      "details": {
+        "flags": [
+          "ungrounded number: 120 (not in tool outputs)"
+        ],
+        "reasons": []
+      },
+      "metrics": {}
+    },
+    {
+      "id": "guardrail_fabricated_who_number",
+      "type": "guardrail",
+      "category": "regression",
+      "passed": true,
+      "details": {
+        "flags": [
+          "ungrounded number: 40 (not in tool outputs)",
+          "cited source not retrieved: WHO"
+        ],
+        "reasons": []
+      },
+      "metrics": {}
+    },
+    {
+      "id": "guardrail_uncited_grap_stage",
+      "type": "guardrail",
+      "category": "regression",
+      "passed": true,
+      "details": {
+        "flags": [
+          "cited GRAP stage not retrieved: Stage III"
+        ],
+        "reasons": []
+      },
+      "metrics": {}
+    },
+    {
+      "id": "guardrail_clean_answer_no_false_positive",
+      "type": "guardrail",
+      "category": "regression",
+      "passed": true,
+      "details": {
+        "flags": [],
+        "reasons": []
+      },
+      "metrics": {}
+    },
+    {
+      "id": "route_international_limits_multitool",
+      "type": "routing",
+      "category": "multi_tool",
+      "passed": true,
+      "details": {
+        "tools_called": [
+          "get_health_guidance",
+          "get_pm25_forecast"
+        ],
+        "expected": [
+          "get_health_guidance",
+          "get_pm25_forecast"
+        ]
+      },
+      "metrics": {}
+    },
+    {
+      "id": "route_definitional_no_tools",
+      "type": "routing",
+      "category": "false_positive",
+      "passed": true,
+      "details": {
+        "tools_called": [],
+        "expected": []
+      },
+      "metrics": {}
+    },
+    {
+      "id": "rag_grap_stage3",
+      "type": "retrieval",
+      "category": "rag",
+      "passed": true,
+      "details": {
+        "top_source": "GRAP Schedule7e3bd726-7308-484f-995f-7cb3fa705b8d.pdf",
+        "reasons": [],
+        "context_relevance": 0.407267689704895
+      },
+      "metrics": {
+        "retrieval_accuracy": true,
+        "context_relevance": 0.407267689704895
+      }
+    },
+    {
+      "id": "rag_aqi_350",
+      "type": "retrieval",
+      "category": "rag",
+      "passed": true,
+      "details": {
+        "top_source": "cpcb_about_national_aqi.pdf",
+        "reasons": [],
+        "context_relevance": 0.5424853563308716
+      },
+      "metrics": {
+        "retrieval_accuracy": true,
+        "context_relevance": 0.5424853563308716
+      }
+    },
+    {
+      "id": "rag_who_guideline",
+      "type": "retrieval",
+      "category": "rag",
+      "passed": true,
+      "details": {
+        "top_source": "9789240034433-eng.pdf",
+        "reasons": [],
+        "context_relevance": 0.5408911108970642
+      },
+      "metrics": {
+        "retrieval_accuracy": true,
+        "context_relevance": 0.5408911108970642
+      }
+    },
+    {
+      "id": "rag_us_breakpoints",
+      "type": "retrieval",
+      "category": "rag",
+      "passed": true,
+      "details": {
+        "top_source": "pm-naaqs-air-quality-index-fact-sheet.pdf",
+        "reasons": [],
+        "context_relevance": 0.6240578293800354
+      },
+      "metrics": {
+        "retrieval_accuracy": true,
+        "context_relevance": 0.6240578293800354
+      }
+    },
+    {
+      "id": "e2e_who_comparison",
+      "type": "e2e",
+      "category": "rag",
+      "passed": true,
+      "details": {
+        "reasons": [],
+        "answer": "The forecast for Delhi's PM2.5 levels over the next week is as follows:\n\n- **Day 1:** 38.26 \u00b5g/m\u00b3, AQI 64 (Satisfactory)\n- **Day 2:** 40.62 \u00b5g/m\u00b3, AQI 68 (Satisfactory)\n- **Day 3:** 42.22 \u00b5g/m\u00b3, AQI 71 (Satisfactory)\n- **Day 4:** 43.45 \u00b5g/m\u00b3, AQI 73 (Satisfactory)\n- **Day 5:** 44.42 \u00b5g/m\u00b3, AQI 75 (Satisfactory)\n- **Day 6:** 45.24 \u00b5g/m\u00b3, AQI 76 (Satisfactory)\n- **Day 7:** 45.98 \u00b5g/m\u00b3, AQI 77 (Satisfactory)\n\nAccording to the **WHO** 2021 Global Air Quality Guidelines, the guideline levels for PM2.5 are:\n- **15 \u00b5g/m\u00b3** for a 24-hour mean.\n\nComparing this to the forecasted PM2.5 levels, all values exceed the WHO guideline:\n\nFor example, on **Day 1** the forecasted level is **\u224838.26 \u00b5g/m\u00b3**, which is about **2.55 times** the WHO guideline of **15 \u00b5g/m\u00b3**.\n\n### Conclusion:\nAll forecasted PM2.5 levels are significantly higher than what WHO considers safe. Therefore, it is best to limit outdoor activities, especially for vulnerable groups.",
+        "context_relevance": 0.45177018642425537
+      },
+      "metrics": {
+        "faithfulness": true,
+        "context_relevance": 0.45177018642425537
+      }
+    },
+    {
+      "id": "e2e_grap_trigger",
+      "type": "e2e",
+      "category": "rag",
+      "passed": true,
+      "details": {
+        "reasons": [],
+        "answer": "Next week's air quality forecast for Delhi indicates the following PM2.5 concentrations and corresponding AQI categories:\n\n- **Day 1:** PM2.5 = 38.26 \u00b5g/m\u00b3, AQI = 64 (Satisfactory)\n- **Day 2:** PM2.5 = 40.62 \u00b5g/m\u00b3, AQI = 68 (Satisfactory)\n- **Day 3:** PM2.5 = 42.22 \u00b5g/m\u00b3, AQI = 71 (Satisfactory)\n- **Day 4:** PM2.5 = 43.45 \u00b5g/m\u00b3, AQI = 73 (Satisfactory)\n- **Day 5:** PM2.5 = 44.42 \u00b5g/m\u00b3, AQI = 75 (Satisfactory)\n- **Day 6:** PM2.5 = 45.24 \u00b5g/m\u00b3, AQI = 76 (Satisfactory)\n- **Day 7:** PM2.5 = 45.98 \u00b5g/m\u00b3, AQI = 77 (Satisfactory)\n\nGiven that all forecasted AQI values fall within the \"Satisfactory\" category, this suggests that there will not be any triggering of GRAP restrictions, which commence at an AQI of 201 or higher, per the guidance retrieved.\n\nRecommendations:\n- Outdoor activities are generally safe for everyone. However, sensitive individuals may consider limiting prolonged outdoor exertion on the higher concentration days (Day 6 and Day 7).\n\nIf you have further questions or need additional information, feel free to ask!",
+        "context_relevance": null
+      },
+      "metrics": {
+        "faithfulness": true,
+        "context_relevance": null
+      }
+    }
+  ]
+}

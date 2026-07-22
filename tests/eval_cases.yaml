@@ -1,0 +1,169 @@
+# tests/eval_cases.yaml — evaluation cases for the Delhi PM2.5 agent.
+#
+# Four case `type`s, each scored differently by eval/run_eval.py:
+#   guardrail  — pure verify_response provenance check (no LLM, no API key).
+#   routing    — live agent; assert which tools fired (set-equality).
+#   retrieval  — call get_health_guidance; assert source/section + cosine score.
+#   e2e        — full agent answer; assert tools + grounding + content + source.
+#
+# Metrics (in-house, deterministic — no RAGAS):
+#   faithfulness      = verify_response(answer, tool_results) == []  (e2e; hard gate)
+#   retrieval_accuracy= expected source doc is the top retrieved chunk (hard gate)
+#   context_relevance = max cosine (1 - Chroma distance) among retrieved chunks
+#                       from the expected source doc. Reported; coarse floor 0.30
+#                       (collapse detector) + per-case baseline drift check 0.10.
+#                       MiniLM cosines run low (correct hits observed 0.41-0.62),
+#                       so this is a drift monitor, not a quality bar.
+
+# Held-out forecast benchmark (LSTM vs. persistence). Rebuilds the model's own
+# 80/20 chronological split; the last 20% of windows is genuinely unseen.
+forecast:
+  data_file: data/processed/pm25_daily_final.csv
+  split: 0.8
+  seq_length: 30
+  step: 1                       # 1-step-ahead, matching training
+  gate: beat_persistence        # LSTM MAE must be <= persistence MAE
+
+cases:
+  # ======================= guardrail (regression) =======================
+  # Lifted verbatim from scripts/test_guardrail.py — the session's 3 real bugs
+  # plus the clean-answer false-positive check.
+  - id: guardrail_aqi_unit_conflation
+    type: guardrail
+    category: regression
+    response: "At 46.51 µg/m³ the air is Moderate, around AQI 120."
+    tool_results:
+      - forecast:
+          - {day: 1, pm25_ugm3: 46.51, aqi: 78, aqi_category: Satisfactory}
+    expect:
+      flagged: true
+      flags_contain: ["ungrounded number: 120"]
+
+  - id: guardrail_fabricated_who_number
+    type: guardrail
+    category: regression
+    response: "WHO's 24-hour safe limit is 40 µg/m³, so Delhi at 46.51 is only just above it."
+    tool_results:
+      - forecast:
+          - {day: 1, pm25_ugm3: 46.51, aqi: 78, aqi_category: Satisfactory}
+      - results:
+          - text: "Methods used to develop the guidelines. An indicator of airborne soot and combustion; systematic review of risk."
+            source_document: "9789240034433-eng.pdf"
+            section_title: "Methods used to develop the guidelines"
+            page_start: 7
+            page_end: 7
+            chunk_type: text
+    expect:
+      flagged: true
+      flags_contain: ["ungrounded number: 40", "cited source not retrieved: WHO"]
+
+  - id: guardrail_uncited_grap_stage
+    type: guardrail
+    category: regression
+    response: "This triggers GRAP Stage III restrictions, banning construction activity."
+    tool_results:
+      - forecast:
+          - {day: 1, pm25_ugm3: 46.51, aqi: 78, aqi_category: Satisfactory}
+      - results:
+          - text: "Stage I - Poor (AQI 201-300). Ensure road dust suppression and enforce dust-control at construction sites."
+            source_document: "GRAP Schedule7e3bd726-7308-484f-995f-7cb3fa705b8d.pdf"
+            section_title: "Stage I"
+            page_start: 2
+            page_end: 2
+            chunk_type: table
+    expect:
+      flagged: true
+      flags_contain: ["cited GRAP stage not retrieved: Stage III"]
+
+  - id: guardrail_clean_answer_no_false_positive
+    type: guardrail
+    category: regression
+    response: >
+      The forecast shows Day 1: 38.26 µg/m³ (AQI 64, Satisfactory) up to Day 7:
+      45.98 µg/m³ (AQI 77, Satisfactory). Per the WHO 2021 guidelines the PM2.5
+      24-hour guideline is 15 µg/m³ and the annual guideline is 5 µg/m³. Day 1's
+      38.26 µg/m³ is about 2.5 times the WHO 24-hour guideline, so Delhi is worse
+      than what WHO considers safe. Consider limiting outdoor activity for 2 hours.
+    tool_results:
+      - forecast:
+          - {day: 1, pm25_ugm3: 38.26, aqi: 64, aqi_category: Satisfactory}
+          - {day: 2, pm25_ugm3: 40.62, aqi: 68, aqi_category: Satisfactory}
+          - {day: 3, pm25_ugm3: 42.22, aqi: 71, aqi_category: Satisfactory}
+          - {day: 4, pm25_ugm3: 43.45, aqi: 73, aqi_category: Satisfactory}
+          - {day: 5, pm25_ugm3: 44.42, aqi: 75, aqi_category: Satisfactory}
+          - {day: 6, pm25_ugm3: 45.24, aqi: 76, aqi_category: Satisfactory}
+          - {day: 7, pm25_ugm3: 45.98, aqi: 77, aqi_category: Satisfactory}
+      - results:
+          - text: "WHO 2021 Global Air Quality Guidelines - PM2.5: AQG level 5 ug/m3 annual mean; 15 ug/m3 24-hour mean. Interim targets annual 35 25 15 10; 24-hour 75 50 37.5 25."
+            source_document: "9789240034433-eng.pdf"
+            section_title: "WHO 2021 PM2.5 guideline levels"
+            page_start: 8
+            page_end: 8
+            chunk_type: reference
+    expect:
+      flagged: false
+
+  # ============================== routing ==============================
+  - id: route_international_limits_multitool
+    type: routing
+    category: multi_tool
+    query: "Compare next week's Delhi pollution to international health limits"
+    expect:
+      tools_called: [get_pm25_forecast, get_health_guidance]
+
+  - id: route_definitional_no_tools
+    type: routing
+    category: false_positive
+    query: "what is PM2.5"
+    expect:
+      tools_called: []
+
+  # ============================= retrieval =============================
+  - id: rag_grap_stage3
+    type: retrieval
+    category: rag
+    query: "what are the GRAP stage 3 restrictions?"
+    expect:
+      top_source_document: "GRAP Schedule7e3bd726-7308-484f-995f-7cb3fa705b8d.pdf"
+      any_section_title_contains: "Stage III"
+
+  - id: rag_aqi_350
+    type: retrieval
+    category: rag
+    query: "what should I do when the AQI is 350?"
+    expect:
+      top_source_document: "cpcb_about_national_aqi.pdf"
+
+  - id: rag_who_guideline
+    type: retrieval
+    category: rag
+    query: "what are the WHO PM2.5 guideline levels?"
+    expect:
+      top_source_document: "9789240034433-eng.pdf"
+
+  - id: rag_us_breakpoints
+    type: retrieval
+    category: rag
+    query: "what are the 2024 US EPA PM2.5 AQI breakpoints?"
+    expect:
+      top_source_document: "pm-naaqs-air-quality-index-fact-sheet.pdf"
+
+  # =============================== e2e ================================
+  # The two multi-tool queries, run end-to-end: routing + grounding + content.
+  - id: e2e_who_comparison
+    type: e2e
+    category: rag
+    query: "is Delhi's air worse than what WHO considers safe?"
+    expect:
+      tools_called: [get_pm25_forecast, get_health_guidance]
+      answer_grounded: true
+      answer_contains_any: ["worse", "above", "exceed", "higher"]
+      answer_source_document: "9789240034433-eng.pdf"
+
+  - id: e2e_grap_trigger
+    type: e2e
+    category: rag
+    query: "will next week's air be bad enough to trigger GRAP restrictions?"
+    expect:
+      tools_called: [get_pm25_forecast, get_health_guidance]
+      answer_grounded: true
