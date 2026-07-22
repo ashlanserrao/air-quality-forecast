@@ -9,6 +9,7 @@ from aqi import pm25_to_aqi
 from forecasting import forecast, SEQ_LENGTH
 from fetch_data import get_recent_clean_history
 from rag.retrieval import get_health_guidance
+from guardrail import verify_response, correction_message, fallback_response
 
 MODEL = "gpt-4o-mini"
 
@@ -177,19 +178,26 @@ def _pre_route(query: str) -> list[tuple[str, dict]]:
     return forced
 
 
-def _prerouted_messages(query: str) -> list[dict]:
+def _prerouted(query: str) -> tuple[list[dict], list[dict]]:
     """Run the force-called tools and render them as a synthetic tool-call
     exchange. Using the real tool-call message format (rather than dumping the
     text into a system message) is what the model is trained to ground on, and
-    it shows the model the call already happened so it won't repeat it."""
+    it shows the model the call already happened so it won't repeat it.
+
+    Returns (messages, tool_results): the messages to splice into the
+    conversation, and the raw result dicts so pre-routed outputs join the
+    grounding set the post-generation guardrail checks against."""
     forced = _pre_route(query)
     if not forced:
-        return []
+        return [], []
 
     tool_calls = []
-    tool_results = []
+    tool_messages = []
+    results = []
     for i, (name, arguments) in enumerate(forced):
         call_id = f"prerouted_{i}"
+        result = _run_tool(name, arguments)
+        results.append(result)
         tool_calls.append(
             {
                 "id": call_id,
@@ -197,15 +205,16 @@ def _prerouted_messages(query: str) -> list[dict]:
                 "function": {"name": name, "arguments": json.dumps(arguments)},
             }
         )
-        tool_results.append(
+        tool_messages.append(
             {
                 "role": "tool",
                 "tool_call_id": call_id,
-                "content": json.dumps(_run_tool(name, arguments)),
+                "content": json.dumps(result),
             }
         )
 
-    return [{"role": "assistant", "content": None, "tool_calls": tool_calls}] + tool_results
+    messages = [{"role": "assistant", "content": None, "tool_calls": tool_calls}] + tool_messages
+    return messages, results
 
 
 def _run_tool(name: str, arguments: dict) -> dict:
@@ -248,6 +257,29 @@ def _run_tool(name: str, arguments: dict) -> dict:
     raise ValueError(f"Unknown tool: {name}")
 
 
+def _run_model_turn(client, messages: list[dict], tool_results: list[dict]) -> str:
+    """One completion; if the model calls tools, run them (accumulating their
+    outputs into tool_results) and make the follow-up completion. Returns the
+    assistant's final text for this turn."""
+    response = client.chat.completions.create(model=MODEL, messages=messages, tools=TOOLS)
+    msg = response.choices[0].message
+
+    if not msg.tool_calls:
+        return msg.content
+
+    messages.append(msg)
+    for call in msg.tool_calls:
+        args = json.loads(call.function.arguments)
+        result = _run_tool(call.function.name, args)
+        tool_results.append(result)
+        messages.append(
+            {"role": "tool", "tool_call_id": call.id, "content": json.dumps(result)}
+        )
+
+    final = client.chat.completions.create(model=MODEL, messages=messages)
+    return final.choices[0].message.content
+
+
 def answer(query: str) -> str:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -261,32 +293,24 @@ def answer(query: str) -> str:
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": query},
     ]
-    messages.extend(_prerouted_messages(query))
+    pre_messages, tool_results = _prerouted(query)
+    messages.extend(pre_messages)
 
-    response = client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
-        tools=TOOLS,
-    )
-    msg = response.choices[0].message
+    response_text = _run_model_turn(client, messages, tool_results)
 
-    if not msg.tool_calls:
-        return msg.content
+    flags = verify_response(response_text, tool_results)
+    if not flags:
+        return response_text
 
-    messages.append(msg)
-    for call in msg.tool_calls:
-        args = json.loads(call.function.arguments)
-        result = _run_tool(call.function.name, args)
-        messages.append(
-            {
-                "role": "tool",
-                "tool_call_id": call.id,
-                "content": json.dumps(result),
-            }
-        )
+    # Regenerate once, pointing at the exact unsupported claims.
+    messages.append({"role": "assistant", "content": response_text})
+    messages.append({"role": "user", "content": correction_message(flags)})
+    response_text = _run_model_turn(client, messages, tool_results)
 
-    final = client.chat.completions.create(model=MODEL, messages=messages)
-    return final.choices[0].message.content
+    flags = verify_response(response_text, tool_results)
+    if flags:
+        return fallback_response(tool_results, flags)
+    return response_text
 
 
 if __name__ == "__main__":
