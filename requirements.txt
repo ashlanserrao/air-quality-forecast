@@ -13,7 +13,7 @@ pymupdf
 sentence-transformers
 chromadb
 pytest
-langfuse
+langfuse<3    # observability.py uses the v2 low-level API (trace/span/generation); v3+ is an incompatible OTel rewrite
 fastapi
 uvicorn[standard]
 #-e .
