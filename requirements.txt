@@ -9,4 +9,7 @@ fastparquet
 seaborn
 tensorflow
 openai
+pymupdf
+sentence-transformers
+chromadb
 #-e .
