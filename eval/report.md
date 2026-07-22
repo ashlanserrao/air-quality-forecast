@@ -1,8 +1,8 @@
 # Agent evaluation report
 
-_Generated 2026-07-22T07:15:37.993879+00:00_
+_Generated 2026-07-22T08:01:46.094515+00:00_
 
-**12/12 cases passed**
+**13/13 cases passed**
 
 ## By category
 
@@ -11,7 +11,7 @@ _Generated 2026-07-22T07:15:37.993879+00:00_
 | false_positive | 1 | 1 |
 | multi_tool | 1 | 1 |
 | rag | 6 | 6 |
-| regression | 4 | 4 |
+| regression | 5 | 5 |
 
 ## Forecast benchmark (held-out 20%)
 

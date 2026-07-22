@@ -10,6 +10,7 @@ from forecasting import forecast, SEQ_LENGTH
 from fetch_data import get_recent_clean_history
 from rag.retrieval import get_health_guidance
 from guardrail import verify_response, correction_message, fallback_response
+from observability import tracer
 
 MODEL = "gpt-4o-mini"
 
@@ -218,12 +219,26 @@ def _prerouted(query: str) -> tuple[list[dict], list[dict]]:
 
 
 def _run_tool(name: str, arguments: dict) -> dict:
+    # One span per tool call, so each tool's input/output/latency shows in the
+    # trace. span() is a no-op when there's no active trace (e.g. under eval).
+    with tracer.span(f"tool:{name}", input=arguments) as tool_span:
+        result = _run_tool_impl(name, arguments)
+        tool_span["output"] = result
+        return result
+
+
+def _run_tool_impl(name: str, arguments: dict) -> dict:
     if name == "get_pm25_forecast":
         horizon = int(arguments.get("horizon", 7))
-        try:
-            history = get_recent_clean_history(SEQ_LENGTH).tolist()
-        except ValueError as e:
-            return {"error": str(e)}
+        # The live-data fetch is a distinct dependency (OpenAQ) with its own
+        # latency and failure mode, so it gets its own nested span.
+        with tracer.span("live_data_fetch", input={"seq_length": SEQ_LENGTH}) as ld_span:
+            try:
+                history = get_recent_clean_history(SEQ_LENGTH).tolist()
+            except ValueError as e:
+                ld_span["output"] = {"error": str(e)}
+                return {"error": str(e)}
+            ld_span["output"] = {"points": len(history)}
         preds = forecast(history, horizon=horizon)
         return {
             "horizon": horizon,
@@ -257,12 +272,24 @@ def _run_tool(name: str, arguments: dict) -> dict:
     raise ValueError(f"Unknown tool: {name}")
 
 
-def _run_model_turn(client, messages: list[dict], tool_results: list[dict]) -> str:
+def _usage_dict(response) -> dict:
+    u = getattr(response, "usage", None)
+    if u is None:
+        return {}
+    return {"input": u.prompt_tokens, "output": u.completion_tokens, "total": u.total_tokens}
+
+
+def _run_model_turn(client, messages: list[dict], tool_results: list[dict], label: str) -> str:
     """One completion; if the model calls tools, run them (accumulating their
     outputs into tool_results) and make the follow-up completion. Returns the
-    assistant's final text for this turn."""
+    assistant's final text for this turn. `label` names the generations in the
+    trace so the routing vs. answering LLM calls are distinguishable."""
     response = client.chat.completions.create(model=MODEL, messages=messages, tools=TOOLS)
     msg = response.choices[0].message
+    tracer.generation(
+        name=f"llm.{label}.route", model=MODEL, input=messages,
+        output=msg.content or "", usage=_usage_dict(response),
+    )
 
     if not msg.tool_calls:
         return msg.content
@@ -277,6 +304,10 @@ def _run_model_turn(client, messages: list[dict], tool_results: list[dict]) -> s
         )
 
     final = client.chat.completions.create(model=MODEL, messages=messages)
+    tracer.generation(
+        name=f"llm.{label}.answer", model=MODEL, input=messages,
+        output=final.choices[0].message.content or "", usage=_usage_dict(final),
+    )
     return final.choices[0].message.content
 
 
@@ -289,28 +320,34 @@ def answer(query: str) -> str:
         )
     client = OpenAI(api_key=api_key)
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": query},
-    ]
-    pre_messages, tool_results = _prerouted(query)
-    messages.extend(pre_messages)
+    with tracer.trace("agent.answer", query):
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": query},
+        ]
+        pre_messages, tool_results = _prerouted(query)
+        messages.extend(pre_messages)
 
-    response_text = _run_model_turn(client, messages, tool_results)
+        response_text = _run_model_turn(client, messages, tool_results, label="turn1")
 
-    flags = verify_response(response_text, tool_results)
-    if not flags:
+        flags = verify_response(response_text, tool_results)
+        guardrail_meta = {"passed": not flags, "flags": list(flags)}
+
+        if flags:
+            # Regenerate once, pointing at the exact unsupported claims.
+            guardrail_meta["regenerated"] = True
+            messages.append({"role": "assistant", "content": response_text})
+            messages.append({"role": "user", "content": correction_message(flags)})
+            response_text = _run_model_turn(client, messages, tool_results, label="regen")
+
+            flags = verify_response(response_text, tool_results)
+            guardrail_meta["final_flags"] = list(flags)
+            if flags:
+                guardrail_meta["fallback"] = True
+                response_text = fallback_response(tool_results, flags)
+
+        tracer.update_trace(output=response_text, metadata={"guardrail": guardrail_meta})
         return response_text
-
-    # Regenerate once, pointing at the exact unsupported claims.
-    messages.append({"role": "assistant", "content": response_text})
-    messages.append({"role": "user", "content": correction_message(flags)})
-    response_text = _run_model_turn(client, messages, tool_results)
-
-    flags = verify_response(response_text, tool_results)
-    if flags:
-        return fallback_response(tool_results, flags)
-    return response_text
 
 
 if __name__ == "__main__":

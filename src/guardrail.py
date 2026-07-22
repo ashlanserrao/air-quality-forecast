@@ -20,13 +20,18 @@ _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 # fabricated-measurement risk and a literal match would false-positive on good
 # answers. Pollutant tokens (the digits in PM2.5/PM10), 4-digit years, multiples
 # ("2.5 times" is arithmetic on grounded numbers, verified elsewhere or not at
-# all), and durations ("limit activity for 2 hours").
+# all), durations ("limit activity for 2 hours"), and particle-size descriptors
+# ("2.5 micrometres" — the size that defines PM2.5, not a measured value; this
+# one false-positived a correct "what is PM2.5" answer into a regeneration).
 _PM_TOKEN_RE = re.compile(r"pm\s*(?:2\.5|10)", re.IGNORECASE)
 _YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
 _MULTIPLE_RE = re.compile(r"\d+(?:\.\d+)?\s*(?:times|x|×|-?fold)\b", re.IGNORECASE)
 _DURATION_RE = re.compile(
     r"\d+(?:\.\d+)?[\s-]*(?:hours?|minutes?|days?|weeks?|months?|years?)\b",
     re.IGNORECASE,
+)
+_SIZE_RE = re.compile(
+    r"\d+(?:\.\d+)?\s*(?:µm|μm|micromet(?:er|re)s?|microns?)\b", re.IGNORECASE
 )
 
 _SOURCE_FAMILIES = {
@@ -76,6 +81,7 @@ def _response_numbers(text: str) -> list[float]:
     stripped = _YEAR_RE.sub(" ", stripped)
     stripped = _MULTIPLE_RE.sub(" ", stripped)
     stripped = _DURATION_RE.sub(" ", stripped)
+    stripped = _SIZE_RE.sub(" ", stripped)
     return [float(x) for x in _NUMBER_RE.findall(stripped)]
 
 
@@ -87,10 +93,17 @@ def verify_response(text: str, tool_results: list[dict]) -> list[str]:
     flags: list[str] = []
     grounded_text = json.dumps(tool_results).lower()
 
-    grounded = _grounded_numbers(tool_results)
-    for candidate in _response_numbers(text):
-        if not _is_grounded_number(candidate, grounded):
-            flags.append(f"ungrounded number: {candidate:g} (not in tool outputs)")
+    # With no tool outputs there is nothing to ground numbers against, and the
+    # answer is definitional by construction (any standards/forecast query is
+    # force-routed to a tool first). Checking numbers here only produces false
+    # positives, e.g. "PM2.5 is < 2.5 micrometres" with no forecast to match.
+    # The source/stage citation checks still run: asserting an agency you never
+    # retrieved is a fabrication signal regardless of tool outputs.
+    if tool_results:
+        grounded = _grounded_numbers(tool_results)
+        for candidate in _response_numbers(text):
+            if not _is_grounded_number(candidate, grounded):
+                flags.append(f"ungrounded number: {candidate:g} (not in tool outputs)")
 
     lower = text.lower()
     for label, aliases in _SOURCE_FAMILIES.items():

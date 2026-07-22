@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-22T07:15:37.993879+00:00",
+  "generated_at": "2026-07-22T08:01:46.094515+00:00",
   "summary": {
-    "passed": 12,
-    "total": 12
+    "passed": 13,
+    "total": 13
   },
   "by_category": {
     "false_positive": {
@@ -18,8 +18,8 @@
       "total": 6
     },
     "regression": {
-      "passed": 4,
-      "total": 4
+      "passed": 5,
+      "total": 5
     }
   },
   "metrics": {
@@ -124,6 +124,17 @@
       "metrics": {}
     },
     {
+      "id": "guardrail_definitional_no_tools",
+      "type": "guardrail",
+      "category": "regression",
+      "passed": true,
+      "details": {
+        "flags": [],
+        "reasons": []
+      },
+      "metrics": {}
+    },
+    {
       "id": "guardrail_clean_answer_no_false_positive",
       "type": "guardrail",
       "category": "regression",
@@ -152,15 +163,19 @@
       "metrics": {}
     },
     {
-      "id": "route_definitional_no_tools",
-      "type": "routing",
+      "id": "e2e_definitional_no_tools",
+      "type": "e2e",
       "category": "false_positive",
       "passed": true,
       "details": {
-        "tools_called": [],
-        "expected": []
+        "reasons": [],
+        "answer": "PM2.5 refers to particulate matter that is less than 2.5 micrometers in diameter. These tiny particles can contain a mixture of solids and liquid droplets from various sources, including vehicle emissions, industrial discharges, construction activities, and natural sources like wildfires and dust storms. \n\nDue to their small size, PM2.5 particles can penetrate deep into the respiratory system and are associated with various health issues, including respiratory and cardiovascular problems. Monitoring PM2.5 levels is important for assessing air quality and understanding potential health risks.",
+        "context_relevance": null
       },
-      "metrics": {}
+      "metrics": {
+        "faithfulness": true,
+        "context_relevance": null
+      }
     },
     {
       "id": "rag_grap_stage3",
@@ -229,7 +244,7 @@
       "passed": true,
       "details": {
         "reasons": [],
-        "answer": "The forecast for Delhi's PM2.5 levels over the next week is as follows:\n\n- **Day 1:** 38.26 \u00b5g/m\u00b3, AQI 64 (Satisfactory)\n- **Day 2:** 40.62 \u00b5g/m\u00b3, AQI 68 (Satisfactory)\n- **Day 3:** 42.22 \u00b5g/m\u00b3, AQI 71 (Satisfactory)\n- **Day 4:** 43.45 \u00b5g/m\u00b3, AQI 73 (Satisfactory)\n- **Day 5:** 44.42 \u00b5g/m\u00b3, AQI 75 (Satisfactory)\n- **Day 6:** 45.24 \u00b5g/m\u00b3, AQI 76 (Satisfactory)\n- **Day 7:** 45.98 \u00b5g/m\u00b3, AQI 77 (Satisfactory)\n\nAccording to the **WHO** 2021 Global Air Quality Guidelines, the guideline levels for PM2.5 are:\n- **15 \u00b5g/m\u00b3** for a 24-hour mean.\n\nComparing this to the forecasted PM2.5 levels, all values exceed the WHO guideline:\n\nFor example, on **Day 1** the forecasted level is **\u224838.26 \u00b5g/m\u00b3**, which is about **2.55 times** the WHO guideline of **15 \u00b5g/m\u00b3**.\n\n### Conclusion:\nAll forecasted PM2.5 levels are significantly higher than what WHO considers safe. Therefore, it is best to limit outdoor activities, especially for vulnerable groups.",
+        "answer": "Here's the forecasted PM2.5 air quality for the coming week in Delhi:\n\n1. **Day 1:** \n   - PM2.5: 38.26 \u00b5g/m\u00b3\n   - AQI: 64 (Satisfactory)\n   \n2. **Day 2:**\n   - PM2.5: 40.62 \u00b5g/m\u00b3\n   - AQI: 68 (Satisfactory)\n\n3. **Day 3:**\n   - PM2.5: 42.22 \u00b5g/m\u00b3\n   - AQI: 71 (Satisfactory)\n\n4. **Day 4:**\n   - PM2.5: 43.45 \u00b5g/m\u00b3\n   - AQI: 73 (Satisfactory)\n\n5. **Day 5:**\n   - PM2.5: 44.42 \u00b5g/m\u00b3\n   - AQI: 75 (Satisfactory)\n\n6. **Day 6:**\n   - PM2.5: 45.24 \u00b5g/m\u00b3\n   - AQI: 76 (Satisfactory)\n\n7. **Day 7:**\n   - PM2.5: 45.98 \u00b5g/m\u00b3\n   - AQI: 77 (Satisfactory)\n\n### Recommendations:\n- The AQI values forecasted all fall into the \"Satisfactory\" category, indicating that outdoor activities can generally be conducted without concern.\n\n### Comparison with WHO Guidelines:\nAccording to the WHO 2021 guidelines:\n- The **24-hour mean guideline** for PM2.5 is **15 \u00b5g/m\u00b3**.\n- The forecasted PM2.5 values for the upcoming week range from approximately **38.26 to 45.98 \u00b5g/m\u00b3**, which is significantly higher than the WHO guideline of 15 \u00b5g/m\u00b3, being approximately **2.5 to 3\u00d7 the recommended level**.\n\nConsequently, while the AQI is \"Satisfactory\" according to CPCB standards, the PM2.5 levels exceed what WHO considers safe, which suggests that for sensitive groups, caution is advised despite the overall satisfactory AQI rating.",
         "context_relevance": 0.45177018642425537
       },
       "metrics": {
@@ -244,7 +259,7 @@
       "passed": true,
       "details": {
         "reasons": [],
-        "answer": "Next week's air quality forecast for Delhi indicates the following PM2.5 concentrations and corresponding AQI categories:\n\n- **Day 1:** PM2.5 = 38.26 \u00b5g/m\u00b3, AQI = 64 (Satisfactory)\n- **Day 2:** PM2.5 = 40.62 \u00b5g/m\u00b3, AQI = 68 (Satisfactory)\n- **Day 3:** PM2.5 = 42.22 \u00b5g/m\u00b3, AQI = 71 (Satisfactory)\n- **Day 4:** PM2.5 = 43.45 \u00b5g/m\u00b3, AQI = 73 (Satisfactory)\n- **Day 5:** PM2.5 = 44.42 \u00b5g/m\u00b3, AQI = 75 (Satisfactory)\n- **Day 6:** PM2.5 = 45.24 \u00b5g/m\u00b3, AQI = 76 (Satisfactory)\n- **Day 7:** PM2.5 = 45.98 \u00b5g/m\u00b3, AQI = 77 (Satisfactory)\n\nGiven that all forecasted AQI values fall within the \"Satisfactory\" category, this suggests that there will not be any triggering of GRAP restrictions, which commence at an AQI of 201 or higher, per the guidance retrieved.\n\nRecommendations:\n- Outdoor activities are generally safe for everyone. However, sensitive individuals may consider limiting prolonged outdoor exertion on the higher concentration days (Day 6 and Day 7).\n\nIf you have further questions or need additional information, feel free to ask!",
+        "answer": "Next week's air quality forecast for Delhi indicates that the PM2.5 levels will range from around 38 \u00b5g/m\u00b3 to 46 \u00b5g/m\u00b3, corresponding to AQI values between 64 and 77, categorized as \"Satisfactory\" throughout the week. The specific daily forecasts are as follows:\n\n- Day 1: PM2.5 38.26 \u00b5g/m\u00b3, AQI 64 (Satisfactory)\n- Day 2: PM2.5 40.62 \u00b5g/m\u00b3, AQI 68 (Satisfactory)\n- Day 3: PM2.5 42.22 \u00b5g/m\u00b3, AQI 71 (Satisfactory)\n- Day 4: PM2.5 43.45 \u00b5g/m\u00b3, AQI 73 (Satisfactory)\n- Day 5: PM2.5 44.42 \u00b5g/m\u00b3, AQI 75 (Satisfactory)\n- Day 6: PM2.5 45.24 \u00b5g/m\u00b3, AQI 76 (Satisfactory)\n- Day 7: PM2.5 45.98 \u00b5g/m\u00b3, AQI 77 (Satisfactory)\n\nAccording to the GRAP (Graded Response Action Plan), Stage I applies when the AQI ranges between 201-300, at which point various actions are triggered to manage air quality. The forecasts for the upcoming week show that AQI values will remain in the \"Satisfactory\" range, well below the threshold for any GRAP restrictions.\n\nIn summary, next week\u2019s air quality will not trigger GRAP restrictions, and conditions are safe for outdoor activities.",
         "context_relevance": null
       },
       "metrics": {

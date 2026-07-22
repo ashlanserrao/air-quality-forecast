@@ -1,0 +1,29 @@
+{
+  "type": "trace",
+  "name": "agent.answer",
+  "input": "what is PM2.5",
+  "start": "2026-07-22T08:02:24.287077+00:00",
+  "output": "PM2.5 refers to particulate matter with a diameter of 2.5 micrometers or smaller. These tiny particles can be inhaled deep into the lungs and may pose health risks. PM2.5 can originate from various sources, including vehicle emissions, industrial discharges, burning of fossil fuels, and natural sources like wildfires. Due to their small size, they can easily enter the bloodstream and have been associated with various health issues, including respiratory and cardiovascular problems.",
+  "metadata": {
+    "guardrail": {
+      "passed": true,
+      "flags": []
+    }
+  },
+  "children": [
+    {
+      "type": "generation",
+      "name": "llm.turn1.route",
+      "model": "gpt-4o-mini",
+      "input_messages": 2,
+      "output_preview": "PM2.5 refers to particulate matter with a diameter of 2.5 micrometers or smaller. These tiny particles can be inhaled deep into the lungs and may pose health ri",
+      "usage": {
+        "input": 1104,
+        "output": 97,
+        "total": 1201
+      },
+      "estimated_cost_usd": 0.0002238
+    }
+  ],
+  "latency_ms": 4055.1
+}

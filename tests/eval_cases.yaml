@@ -75,6 +75,17 @@ cases:
       flagged: true
       flags_contain: ["cited GRAP stage not retrieved: Stage III"]
 
+  # Regression guard for the false-positive that observability caught: a correct
+  # "what is PM2.5" answer was flagged on the "2.5" in "2.5 micrometres" (no tool
+  # ran, so nothing grounded it) and regenerated into a useless apology.
+  - id: guardrail_definitional_no_tools
+    type: guardrail
+    category: regression
+    response: "PM2.5 refers to particulate matter that is less than 2.5 micrometers in diameter. These particles penetrate deep into the lungs."
+    tool_results: []
+    expect:
+      flagged: false
+
   - id: guardrail_clean_answer_no_false_positive
     type: guardrail
     category: regression
@@ -111,12 +122,17 @@ cases:
     expect:
       tools_called: [get_pm25_forecast, get_health_guidance]
 
-  - id: route_definitional_no_tools
-    type: routing
+  # End-to-end coverage of the same definitional case: no tools AND the answer
+  # must survive the guardrail (not get regenerated). Before the fix this failed
+  # on answer_grounded; the routing-only assertion it replaced never noticed.
+  - id: e2e_definitional_no_tools
+    type: e2e
     category: false_positive
     query: "what is PM2.5"
     expect:
       tools_called: []
+      answer_grounded: true
+      answer_contains_any: ["particulate", "particle"]
 
   # ============================= retrieval =============================
   - id: rag_grap_stage3
