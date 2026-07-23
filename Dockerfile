@@ -14,14 +14,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Torch (CPU) from its own index first so pip doesn't pull a CUDA build; the rest
-# from requirements. tensorflow-cpu keeps the LSTM runtime lean. If the TF aarch64
-# wheel ever fails to resolve, the fallback is TFLite (see DEPLOY.md).
+# Install all deps for arm64 (Oracle Ampere A1). Notes specific to aarch64:
+#  - There is NO `tensorflow-cpu` wheel for arm64; the full `tensorflow` wheel is
+#    already CPU-only on aarch64, so requirements.txt's plain `tensorflow` is correct.
+#  - torch's default PyPI wheel is CPU-only on arm64, so no special --index-url is
+#    needed (that trick only avoids the CUDA build on x86_64).
+# Hence we just install requirements.txt as-is. If the TF aarch64 wheel is ever
+# dropped upstream, the fallback is TFLite (see DEPLOY.md).
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
- && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
- && grep -viE '^(tensorflow|torch)\b' requirements.txt > /tmp/req.txt \
- && pip install --no-cache-dir tensorflow-cpu -r /tmp/req.txt
+ && pip install --no-cache-dir -r requirements.txt
 
 # Pre-download the embedding model so retrieval never fetches from HF at runtime.
 ENV HF_HOME=/opt/hf
