@@ -1,4 +1,7 @@
 # Keep the build context small and the image clean.
+# NOTE: .dockerignore does NOT support inline (end-of-line) comments — a '#'
+# only starts a comment at the beginning of a line. Keep comments on their own
+# lines so patterns aren't corrupted by trailing text.
 .venv310/
 .venv/
 __pycache__/
@@ -9,9 +12,12 @@ __pycache__/
 
 # Dev-only data and artifacts not needed at runtime.
 data/raw/
-data/knowledge_base/        # PDFs are only for ingestion; runtime reads chroma_db
+# PDFs are only for ingestion; runtime reads chroma_db
+data/knowledge_base/
+# Exclude all processed CSVs...
 data/processed/*.csv
-!data/processed/pm25_daily_final.csv   # the UI history chart needs this one
+# ...except this one — the UI history chart needs it.
+!data/processed/pm25_daily_final.csv
 eval/
 tests/
 scripts/
