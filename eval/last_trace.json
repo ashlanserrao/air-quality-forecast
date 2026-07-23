@@ -2,8 +2,8 @@
   "type": "trace",
   "name": "agent.answer",
   "input": "what is PM2.5",
-  "start": "2026-07-22T08:02:24.287077+00:00",
-  "output": "PM2.5 refers to particulate matter with a diameter of 2.5 micrometers or smaller. These tiny particles can be inhaled deep into the lungs and may pose health risks. PM2.5 can originate from various sources, including vehicle emissions, industrial discharges, burning of fossil fuels, and natural sources like wildfires. Due to their small size, they can easily enter the bloodstream and have been associated with various health issues, including respiratory and cardiovascular problems.",
+  "start": "2026-07-23T05:35:26.668553+00:00",
+  "output": "PM2.5 refers to particulate matter that is less than 2.5 micrometers in diameter. These tiny particles can include a mixture of solid particles and liquid droplets, and they can be composed of various substances, such as dust, dirt, soot, and smoke. \n\nDue to their small size, PM2.5 particles can be inhaled deeply into the lungs and even enter the bloodstream, posing significant health risks. Exposure to high levels of PM2.5 has been linked to respiratory and cardiovascular diseases, as well as other serious health issues. Monitoring and controlling PM2.5 levels is vital for protecting public health and the environment.",
   "metadata": {
     "guardrail": {
       "passed": true,
@@ -16,14 +16,14 @@
       "name": "llm.turn1.route",
       "model": "gpt-4o-mini",
       "input_messages": 2,
-      "output_preview": "PM2.5 refers to particulate matter with a diameter of 2.5 micrometers or smaller. These tiny particles can be inhaled deep into the lungs and may pose health ri",
+      "output_preview": "PM2.5 refers to particulate matter that is less than 2.5 micrometers in diameter. These tiny particles can include a mixture of solid particles and liquid dropl",
       "usage": {
         "input": 1104,
-        "output": 97,
-        "total": 1201
+        "output": 132,
+        "total": 1236
       },
-      "estimated_cost_usd": 0.0002238
+      "estimated_cost_usd": 0.0002448
     }
   ],
-  "latency_ms": 4055.1
+  "latency_ms": 2588.1
 }

@@ -49,10 +49,10 @@ VM. (If you keep it private, `docker login ghcr.io` with a read-scoped PAT.)
 ```bash
 mkdir -p ~/pm25 && cd ~/pm25
 # fetch just the compose file
-curl -fsSLO https://raw.githubusercontent.com/<owner>/<repo>/main/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/ashlanserrao/air-quality-forecast/main/docker-compose.yml
 
 cat > .env <<'EOF'
-IMAGE=ghcr.io/<owner>/<repo>:latest
+IMAGE=ghcr.io/ashlanserrao/air-quality-forecast:latest
 OPENAI_API_KEY=sk-...
 OPENAQ_API_KEY=...
 # optional tracing:
